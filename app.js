@@ -1,3 +1,39 @@
+async function ghApi(path, token, method="GET", body=null, timeoutMs=8000){
+  const url = path.startsWith("http") ? path : ("https://api.github.com" + path);
+  const headers = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28"
+  };
+  if(token) headers["Authorization"] = "token " + token;
+  if(body) headers["Content-Type"] = "application/json";
+
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+
+  try{
+    const res = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : null,
+      signal: ctrl.signal
+    });
+
+    let text = "";
+    try{ text = await res.text(); } catch(_){}
+    let json = null;
+    try{ json = text ? JSON.parse(text) : null; } catch(_){}
+
+    return { res, text, json };
+  } catch (e){
+    if(e && (e.name === "AbortError" || String(e).toLowerCase().includes("abort"))){
+      throw new Error("Request timed out (check internet / token / browser blocking).");
+    }
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
 function effectiveTodayKey(){
   const d=new Date();
   const dow=d.getDay();
@@ -223,58 +259,76 @@ async function testGitHub(){
 }
 }
 async function saveToGitHub(){
-  if(!await testGitHub())return;
+  const payload = normalizeData(loadData());
+  const s = ghSettings();
 
-  const attemptSave = async ()=>{
-    setStatus("Saving to GitHub…","Contacting GitHub…","warn");
-    let sha=null;
-    try{
-      const current = await githubGetFile();
-      sha = current && current.sha ? current.sha : null;
-    }catch{
-      sha = null;
+  if(!s.owner || !s.repo || !s.path){
+    setStatus("Save failed.","Missing GitHub settings (owner/repo/path).", "err");
+    return false;
+  }
+  if(!s.token){
+    setStatus("Save failed.","Token missing. Open Settings and paste your GitHub token.", "err");
+    return false;
+  }
+
+  const encPath = encodeURIComponent(s.path).replaceAll("%2F","/");
+  const ref = encodeURIComponent(s.branch || "main");
+
+  async function getLatestSha(){
+    setSyncStep("1/2 Fetching latest file version…");
+    const got = await ghApi(`/repos/${s.owner}/${s.repo}/contents/${encPath}?ref=${ref}`, s.token, "GET", null, 8000);
+    if(!got.res.ok){
+      const msg = (got.json && got.json.message) ? got.json.message : got.text || `HTTP ${got.res.status}`;
+      throw new Error(`Lookup failed (${got.res.status}): ${msg}`);
     }
+    if(!got.json || !got.json.sha) throw new Error("Lookup failed: missing SHA in response.");
+    return got.json.sha;
+  }
 
-    setStatus("Saving to GitHub…","Uploading…","warn");
-    const resp = await githubPutFile(exportPayload(), sha);
-
-    localStorage.setItem(LS.lastSync,new Date().toLocaleString());
-    updateLastSync();
-
-    const commitSha = resp && resp.commit && resp.commit.sha ? resp.commit.sha.slice(0,7) : "";
-    setStatus("Saved to GitHub ✅", commitSha ? ("Commit: "+commitSha) : "Saved.", "ok");
-    return true;
-  };
+  async function putWithSha(sha){
+    setSyncStep("2/2 Uploading schedule.json…");
+    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
+    const put = await ghApi(`/repos/${s.owner}/${s.repo}/contents/${encPath}`, s.token, "PUT", {
+      message: "Update family schedule",
+      content: b64,
+      sha,
+      branch: s.branch || "main"
+    }, 12000);
+    return put;
+  }
 
   try{
-    await attemptSave();
-  }catch(e){
-    const msg=String(e && e.message ? e.message : e);
+    setStatus("Saving to GitHub…","Starting…", "warn");
 
-    if(/aborted/i.test(msg) || /AbortError/i.test(msg)){
-      setStatus("Save failed.","GitHub request timed out. Check internet and try again.", "err");
-      return;
+    const sha1 = await getLatestSha();
+    let put = await putWithSha(sha1);
+
+    if(!put.res.ok && (put.res.status===409 || put.res.status===422)){
+      // Re-try once with the newest SHA
+      const sha2 = await getLatestSha();
+      put = await putWithSha(sha2);
     }
 
-    // SHA mismatch / conflict → retry once automatically
-    if(/does not match/i.test(msg) || /409/.test(msg)){
-      try{
-        setStatus("Saving to GitHub…","Detected conflict — retrying…","warn");
-        await attemptSave();
-        return;
-      }catch(e2){
-        const msg2=String(e2 && e2.message ? e2.message : e2);
-        setStatus("Save failed.",escapeHtml(msg2),"err");
-        return;
-      }
+    if(!put.res.ok){
+      const msg = (put.json && put.json.message) ? put.json.message : put.text || `HTTP ${put.res.status}`;
+      throw new Error(`Save failed (${put.res.status}): ${msg}`);
     }
 
-    let nice=msg;
-    if(/Bad credentials/i.test(msg) || /Requires authentication/i.test(msg)) nice="Token rejected. Open Settings and paste the fine‑grained token again.";
-    else if(/Not Found/i.test(msg)) nice="Not Found. Check owner/repo/branch/path AND ensure data/schedule.json exists in the repo.";
-    else if(/rate limit/i.test(msg)) nice="GitHub rate limit hit. Try again in a few minutes.";
-    else if(/Resource not accessible by personal access token/i.test(msg)) nice="Token permissions are too limited. Edit the token to allow 'Contents: Read and write' for this repository.";
-    setStatus("Save failed.",escapeHtml(nice),"err");
+    localStorage.setItem("lastSync", String(Date.now()));
+    updateLastSync();
+
+    const short = put.json && put.json.commit && put.json.commit.sha ? put.json.commit.sha.slice(0,7) : "";
+    setStatus("Saved to GitHub ✅", short ? `Commit ${short}` : "Saved.", "ok");
+
+    // Force reload from GitHub so the user sees the final source-of-truth.
+    await loadLatestFromGitHub(true);
+    data = loadData();
+    safe(()=>renderAll());
+    return true;
+
+  } catch(e){
+    setStatus("Save failed.", (e && e.message) ? e.message : String(e), "err");
+    return false;
   }
 }
 
@@ -387,3 +441,37 @@ function bootstrap(){
   wireUI();renderAll();
 }
 bootstrap();
+
+
+function setSyncStep(step){
+  // step is a short string like "1/2 Fetching SHA…"
+  try{
+    setStatus("Saving to GitHub…", step, "warn");
+  }catch(_){}
+}
+
+(function wireTestToken(){
+  document.addEventListener("DOMContentLoaded", ()=>{
+    const btn = document.getElementById("btnTestToken");
+    if(!btn) return;
+    btn.addEventListener("click", async ()=>{
+      const s = ghSettings();
+      if(!s.token){
+        setStatus("Token test failed.","Paste token in Settings first.", "err");
+        return;
+      }
+      try{
+        setStatus("Testing token…","Calling GitHub /user", "warn");
+        const r = await ghApi("/user", s.token, "GET", null, 8000);
+        if(!r.res.ok){
+          const msg = (r.json && r.json.message) ? r.json.message : r.text || `HTTP ${r.res.status}`;
+          throw new Error(`(${r.res.status}) ${msg}`);
+        }
+        const login = r.json && r.json.login ? r.json.login : "unknown";
+        setStatus("Token OK ✅", `Logged in as ${login}`, "ok");
+      }catch(e){
+        setStatus("Token test failed.", e && e.message ? e.message : String(e), "err");
+      }
+    });
+  });
+})();
