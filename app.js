@@ -6,14 +6,6 @@ function effectiveTodayKey(){
   return ['sun','mon','tue','wed','thu','fri','sat'][dow];
 }
 
-function effectiveTodayLabel(){
-  const d=new Date();
-  const dow=d.getDay();
-  if(dow===0||dow===6) return "Weekend: Next Monday";
-  return dayObjByKey(effectiveTodayKey()).label;
-}
-
-
 // Family Schedule — Option A (Trips per Day)
 const DAYS=[{key:"mon",label:"Monday",tint:"mon"},{key:"tue",label:"Tuesday",tint:"tue"},{key:"wed",label:"Wednesday",tint:"wed"},{key:"thu",label:"Thursday",tint:"thu"},{key:"fri",label:"Friday",tint:"fri"}];
 const PICKUP_OPTIONS=["Lincoln","Evelyn","Both"];
@@ -51,10 +43,10 @@ function kv(k,v){const val=(v||"").trim()||"—";return `<div><div class="k">${e
 function shortTripLine(trip){const t=trip.time||"—";const who=trip.pickup||"—";const to=trip.dropoff||"—";return `${t} • ${who} → ${to}`}
 function makeSelect(options,value,disabled){const s=document.createElement("select");s.className="select";s.disabled=!!disabled;const blank=document.createElement("option");blank.value="";blank.textContent="—";s.appendChild(blank);for(const opt of options){const o=document.createElement("option");o.value=opt;o.textContent=opt;s.appendChild(o)}s.value=value||"";return s}
 function openMapForLocation(loc){const q=(loc||"").trim();if(!q)return;const url=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;window.open(url,"_blank","noopener,noreferrer")}
-function updateLastSync(){const elx=el("lastSync"); if(!elx) return; elx.textContent=localStorage.getItem(LS.lastSync)||"Never"}
+function updateLastSync(){el("lastSync").textContent=localStorage.getItem(LS.lastSync)||"Never"}
 function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=false;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
 
-function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);el("todayTitle").textContent = `Today: ${effectiveTodayLabel()}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
+function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);el("todayTitle").textContent=`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
 trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
 <div class="kv">${kv("Pick up",trip.pickup)}${kv("From",trip.from)}${kv("Time",trip.time)}${kv("Keep at your home",trip.keepHome)}${kv("Feed",trip.feed)}${kv("Drop off",trip.dropoff)}${kv("Drop off time",trip.dropoffTime)}</div>
 <div class="row"><button class="btn btn-primary" type="button" ${trip.dropoff?"":"disabled"}>Map</button></div>`;
@@ -114,6 +106,18 @@ function renderTripEditor(dayKey,trip,idx,count){
   }
   return root;
 }
+
+// Fetch with timeout so "Saving..." can't hang forever.
+async function fetchWithTimeout(url, options={}, timeoutMs=15000){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), timeoutMs);
+  try{
+    return await fetch(url, {...options, signal: ctrl.signal});
+  }finally{
+    clearTimeout(t);
+  }
+}
+
 
 function renderEdit(){
   const wrap=el("editDays");wrap.innerHTML="";
@@ -185,7 +189,7 @@ function hasGitHubConfig(){return settings.ghOwner&&settings.ghRepo&&settings.gh
 function ghHeaders(){return{"Accept":"application/vnd.github+json","Authorization":`Bearer ${settings.ghToken}`,"X-GitHub-Api-Version":"2022-11-28"}}
 async function githubGetFile(){
   const url=`https://api.github.com/repos/${encodeURIComponent(settings.ghOwner)}/${encodeURIComponent(settings.ghRepo)}/contents/${settings.ghPath}?ref=${encodeURIComponent(settings.ghBranch)}`;
-  const res=await fetch(url,{headers:ghHeaders(),cache:"no-store"});
+  const res=await fetchWithTimeout(url,{headers:ghHeaders(),cache:"no-store"},15000);
   const body=await res.json();
   if(!res.ok) throw new Error(body?.message||`HTTP ${res.status}`);
   return body;
@@ -196,7 +200,7 @@ async function githubPutFile(contentStr,shaOrNull){
   const url=`https://api.github.com/repos/${encodeURIComponent(settings.ghOwner)}/${encodeURIComponent(settings.ghRepo)}/contents/${settings.ghPath}`;
   const payload={message:`Update schedule (${new Date().toLocaleString()})`,content:utf8ToB64(contentStr),branch:settings.ghBranch};
   if(shaOrNull) payload.sha=shaOrNull;
-  const res=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(payload),cache:"no-store"});
+  const res=await fetchWithTimeout(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(payload),cache:"no-store"},20000);
   const body=await res.json();
   if(!res.ok) throw new Error(body?.message||`HTTP ${res.status}`);
   return body;
@@ -219,75 +223,64 @@ async function testGitHub(){
 }
 }
 async function saveToGitHub(){
-  setStatus("Saving to GitHub…","", "warn");
-  const payload = normalizeData(loadData());
-  const s = ghSettings();
-  if(!s.owner || !s.repo || !s.path){
-    setStatus("Save failed.","Missing GitHub settings (owner/repo/path).", "err");
-    return false;
-  }
-  if(!s.token){
-    setStatus("Save failed.","Token missing. Open Settings and paste your GitHub token.", "err");
-    return false;
-  }
+  if(!await testGitHub())return;
 
-  async function getLatestSha(){
-    const encPath = encodeURIComponent(s.path).replaceAll("%2F","/");
-    const got = await ghApi(`/repos/${s.owner}/${s.repo}/contents/${encPath}?ref=${encodeURIComponent(s.branch)}`, s.token);
-    if(!got.res.ok) throw new Error(`GitHub file lookup failed (${got.res.status})`);
-    return got.json.sha;
-  }
+  const attemptSave = async ()=>{
+    setStatus("Saving to GitHub…","Contacting GitHub…","warn");
+    let sha=null;
+    try{
+      const current = await githubGetFile();
+      sha = current && current.sha ? current.sha : null;
+    }catch{
+      sha = null;
+    }
 
-  async function putWithSha(sha){
-    const encPath = encodeURIComponent(s.path).replaceAll("%2F","/");
-    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
-    const put = await ghApi(`/repos/${s.owner}/${s.repo}/contents/${encPath}`, s.token, "PUT", {
-      message: "Update family schedule",
-      content: b64,
-      sha,
-      branch: s.branch
-    });
-    return put;
-  }
+    setStatus("Saving to GitHub…","Uploading…","warn");
+    const resp = await githubPutFile(exportPayload(), sha);
+
+    localStorage.setItem(LS.lastSync,new Date().toLocaleString());
+    updateLastSync();
+
+    const commitSha = resp && resp.commit && resp.commit.sha ? resp.commit.sha.slice(0,7) : "";
+    setStatus("Saved to GitHub ✅", commitSha ? ("Commit: "+commitSha) : "Saved.", "ok");
+    return true;
+  };
 
   try{
-    const sha1 = await getLatestSha();
-    let put = await putWithSha(sha1);
-
-    // If someone else saved a moment ago, GitHub will reject with a conflict.
-    if(!put.res.ok && (put.res.status===409 || put.res.status===422)){
-      const sha2 = await getLatestSha();
-      put = await putWithSha(sha2);
-    }
-
-    if(!put.res.ok){
-      const msg = (put.json && put.json.message) ? put.json.message : `PUT failed (${put.res.status})`;
-      throw new Error(msg);
-    }
-
-    localStorage.setItem("lastSync", String(Date.now()));
-    updateLastSync();
-    const sha = put.json && put.json.commit && put.json.commit.sha ? put.json.commit.sha.slice(0,7) : "";
-    setStatus("Saved to GitHub ✅", sha ? ("Commit: "+sha) : "Saved.", "ok");
-
-    // Pull latest back (avoids GitHub Pages caching confusion) and re-render
-    await loadLatestFromGitHub();
-    data = loadData();
-    safe(()=>renderAll());
-
-    return true;
+    await attemptSave();
   }catch(e){
-    setStatus("Save failed.", e && e.message ? e.message : String(e), "err");
-    return false;
+    const msg=String(e && e.message ? e.message : e);
+
+    if(/aborted/i.test(msg) || /AbortError/i.test(msg)){
+      setStatus("Save failed.","GitHub request timed out. Check internet and try again.", "err");
+      return;
+    }
+
+    // SHA mismatch / conflict → retry once automatically
+    if(/does not match/i.test(msg) || /409/.test(msg)){
+      try{
+        setStatus("Saving to GitHub…","Detected conflict — retrying…","warn");
+        await attemptSave();
+        return;
+      }catch(e2){
+        const msg2=String(e2 && e2.message ? e2.message : e2);
+        setStatus("Save failed.",escapeHtml(msg2),"err");
+        return;
+      }
+    }
+
+    let nice=msg;
+    if(/Bad credentials/i.test(msg) || /Requires authentication/i.test(msg)) nice="Token rejected. Open Settings and paste the fine‑grained token again.";
+    else if(/Not Found/i.test(msg)) nice="Not Found. Check owner/repo/branch/path AND ensure data/schedule.json exists in the repo.";
+    else if(/rate limit/i.test(msg)) nice="GitHub rate limit hit. Try again in a few minutes.";
+    else if(/Resource not accessible by personal access token/i.test(msg)) nice="Token permissions are too limited. Edit the token to allow 'Contents: Read and write' for this repository.";
+    setStatus("Save failed.",escapeHtml(nice),"err");
   }
 }
 
 function renderAll(){
   applyDadFont();updateModeButtons();
-  
-  // If running on GitHub Pages (https), pull latest schedule.json so Dad sees updates.
-  if(location.protocol.startsWith("http")){fetchPublishedSchedule().then(()=>{try{renderToday();renderWeekSummary();if(!isDadMode) renderEdit();}catch(e){console.error(e)}}).catch(()=>{});}
-renderToday();renderWeekSummary();
+  renderToday();renderWeekSummary();
   if(!isDadMode) renderEdit();
   updateLastSync();
 }
@@ -394,35 +387,3 @@ function bootstrap(){
   wireUI();renderAll();
 }
 bootstrap();
-
-
-async function saveToGitHubQuick(){
-  if(!hasGitHubConfig()){
-    setStatus("GitHub not configured.","Open Settings → enter owner/repo/token.","warn");
-    return false;
-  }
-  setStatus("Saving to GitHub…","", "warn");
-  try{
-    // Always re-fetch sha to avoid mismatch, retry once on conflict
-    const {sha}=await githubGetFile();
-    try{
-      await githubPutFile(exportPayload(), sha);
-    }catch(e){
-      const msg=String(e.message||e);
-      if(/409|sha/i.test(msg)){
-        const again=await githubGetFile();
-        await githubPutFile(exportPayload(), again.sha);
-      }else{
-        throw e;
-      }
-    }
-    localStorage.setItem(LS.lastSync, new Date().toLocaleString());
-    updateLastSync();
-    setStatus("Saved to GitHub ✅","Dad will see it after refresh.","ok");
-    return true;
-  }catch(e){
-    const msg=String(e.message||e);
-    setStatus("Save failed.", msg, "err");
-    return false;
-  }
-}
