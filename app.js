@@ -228,6 +228,16 @@ function renderAll(){
   updateLastSync();
 }
 
+
+async function fetchPublishedSchedule(){
+  // Loads the schedule from the published GitHub Pages site (no token required).
+  // Cache-bust to avoid stale results.
+  const url = `data/schedule.json?ts=${Date.now()}`;
+  const res = await fetch(url,{cache:"no-store"});
+  if(!res.ok) throw new Error(`Published schedule not reachable (${res.status})`);
+  return await res.json();
+}
+
 function wireUI(){
   showView("today");
   el("btnBackFromToday").addEventListener("click",()=>{if(isDadMode)showView("week");else showView("edit")});
@@ -239,21 +249,36 @@ function wireUI(){
     else{isEditUnlocked=settings.editPin?false:true;setStatus("Edit mode.",settings.editPin?"Tap Unlock Edit and enter PIN.":"Editing enabled (no PIN set).","ok");renderEdit();showView("edit")}
     renderAll();
   });
-  el("btnUnlock").addEventListener("click",()=>{
-    // Allow Unlock Edit to work immediately on app load.
-    // If we are still in Dad (Read) mode, switch into Edit mode first.
-    if(isDadMode){
-      isDadMode=false;
-      isEditUnlocked=settings.editPin?false:true;
-      setStatus("Edit mode.",settings.editPin?"Tap Unlock Edit and enter PIN.":"Editing enabled (no PIN set).","ok");
-      renderEdit();
-      showView("edit");
-      renderAll();
+  el("btnUnlock").addEventListener("click",async()=>{
+  // Single-button edit mode toggle.
+  if(isDadMode){
+    // Enter Edit Mode
+    isDadMode=false;
+    // If a PIN is set, prompt now.
+    if(settings.editPin){
+      const pin=prompt("Enter PIN to edit:");
+      if(pin===null) { isDadMode=true; renderAll(); return; }
+      if(String(pin).trim()!==String(settings.editPin).trim()){
+        isDadMode=true;
+        setStatus("Wrong PIN.","Editing stays locked.","err");
+        renderAll();
+        return;
+      }
     }
-    
-    if(!settings.editPin){isEditUnlocked=!isEditUnlocked;renderAll();setStatus(isEditUnlocked?"Editing enabled.":"Editing locked.","Changes save on this device.","ok");return}
-    el("pinInput").value="";el("dlgPin").showModal();
-  });
+    isEditUnlocked=true;
+    setStatus("Editing ON","Make changes, then press Sync.","ok");
+    showView("edit");
+    renderEdit();
+    renderAll();
+  } else {
+    // Exit Edit Mode back to Dad (Read)
+    isEditUnlocked=false;
+    isDadMode=true;
+    setStatus("Editing OFF","View mode for Dad.","ok");
+    showView("today");
+    renderAll();
+  }
+});
   el("btnPinOk").addEventListener("click",()=>{
     const entered=(el("pinInput").value||"").trim();
     const want=(settings.editPin||"").trim();
@@ -295,11 +320,9 @@ function wireUI(){
   });
   el("newLocation").addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();el("btnAddLocation").click()}});
   el("btnSync").addEventListener("click",async()=>{
-    // Option A: Sync = Save (one-way).
-    await saveToGitHub();
+  await saveToGitHub();
 });
-  el("btnSave").addEventListener("click",saveToGitHub);
-  el("btnTestGitHub").addEventListener("click",testGitHub);
+    el("btnTestGitHub").addEventListener("click",testGitHub);
 }
 
 function bootstrap(){
