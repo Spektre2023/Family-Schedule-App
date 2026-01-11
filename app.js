@@ -43,7 +43,9 @@ function kv(k,v){const val=(v||"").trim()||"—";return `<div><div class="k">${e
 function shortTripLine(trip){const t=trip.time||"—";const who=trip.pickup||"—";const to=trip.dropoff||"—";return `${t} • ${who} → ${to}`}
 function makeSelect(options,value,disabled){const s=document.createElement("select");s.className="select";s.disabled=!!disabled;const blank=document.createElement("option");blank.value="";blank.textContent="—";s.appendChild(blank);for(const opt of options){const o=document.createElement("option");o.value=opt;o.textContent=opt;s.appendChild(o)}s.value=value||"";return s}
 function openMapForLocation(loc){const q=(loc||"").trim();if(!q)return;const url=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;window.open(url,"_blank","noopener,noreferrer")}
-function updateLastSync(){el("lastSync").textContent=localStorage.getItem(LS.lastSync)||"Never"}
+function updateLastSync(){
+  const _ls=document.getElementById("lastSync");
+const _ls=document.getElementById("lastSync"); if(_ls) _ls.textContent=localStorage.getItem(LS.lastSync)||"Never"}
 function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=false;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
 
 function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);el("todayTitle").textContent=`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
