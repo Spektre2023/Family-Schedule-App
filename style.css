@@ -100,3 +100,27 @@ body{
 .grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
 @media (min-width:680px){.grid{grid-template-columns:1fr 1fr}.full{grid-column:1/-1}}
 .dad-large .v{font-size:18px}.dad-xlarge .v{font-size:20px}
+
+
+/* --- Accessibility: stronger dropdown contrast --- */
+.select, select.select{
+  background: rgba(0,0,0,.55) !important;
+  color: var(--text) !important;
+  border-color: rgba(255,255,255,.26) !important;
+}
+.select:focus, select.select:focus{
+  outline: none;
+  border-color: rgba(74,163,255,.75) !important;
+  box-shadow: 0 0 0 4px rgba(74,163,255,.18);
+}
+.select:disabled{
+  opacity:.55;
+  background: rgba(0,0,0,.35) !important;
+  color: rgba(242,246,251,.85) !important;
+}
+select.select option{
+  background: #0b0f14;
+  color: #f2f6fb;
+}
+/* Encourage dark native dropdown rendering where supported */
+select.select{ color-scheme: dark; }

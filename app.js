@@ -36,7 +36,7 @@ function shortTripLine(trip){const t=trip.time||"—";const who=trip.pickup||"�
 function makeSelect(options,value,disabled){const s=document.createElement("select");s.className="select";s.disabled=!!disabled;const blank=document.createElement("option");blank.value="";blank.textContent="—";s.appendChild(blank);for(const opt of options){const o=document.createElement("option");o.value=opt;o.textContent=opt;s.appendChild(o)}s.value=value||"";return s}
 function openMapForLocation(loc){const q=(loc||"").trim();if(!q)return;const url=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;window.open(url,"_blank","noopener,noreferrer")}
 function updateLastSync(){el("lastSync").textContent=localStorage.getItem(LS.lastSync)||"Never"}
-function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=isDadMode;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
+function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=false;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
 
 function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);el("todayTitle").textContent=`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
 trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
@@ -237,7 +237,17 @@ function wireUI(){
     renderAll();
   });
   el("btnUnlock").addEventListener("click",()=>{
-    if(isDadMode)return;
+    // Allow Unlock Edit to work immediately on app load.
+    // If we are still in Dad (Read) mode, switch into Edit mode first.
+    if(isDadMode){
+      isDadMode=false;
+      isEditUnlocked=settings.editPin?false:true;
+      setStatus("Edit mode.",settings.editPin?"Tap Unlock Edit and enter PIN.":"Editing enabled (no PIN set).","ok");
+      renderEdit();
+      showView("edit");
+      renderAll();
+    }
+    
     if(!settings.editPin){isEditUnlocked=!isEditUnlocked;renderAll();setStatus(isEditUnlocked?"Editing enabled.":"Editing locked.","Changes save on this device.","ok");return}
     el("pinInput").value="";el("dlgPin").showModal();
   });
