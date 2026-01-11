@@ -34,13 +34,78 @@ function saveSettings(next){settings={...settings,...next};localStorage.setItem(
 function loadData(){const d=safeParse(localStorage.getItem(LS.data),null);return normalizeData(d)}
 function saveData(){data.updatedAt=new Date().toISOString();localStorage.setItem(LS.data,JSON.stringify(data))}
 function applyDadFont(){document.body.classList.toggle("dad-large",settings.dadFont==="large");document.body.classList.toggle("dad-xlarge",settings.dadFont==="xlarge")}
-function setStatus(line1,line2,kind="ok"){
-  setText("statusLine1", line1||"");
-  setText("statusLine2", line2||"");
-  const wrap = document.getElementById("statusWrap");
-  if(!wrap) return;
-  wrap.classList.remove("ok","err","warn");
-  wrap.classList.add(kind);
+function setStatus(line1,line2,kind="ok"){el("statusLine1").textContent=line1||"";el("statusLine2").innerHTML=line2||"";const dot=el("statusDot");if(kind==="ok"){dot.style.background="var(--accent2)";dot.style.boxShadow="0 0 0 4px rgba(62,209,154,.18)"}else if(kind==="warn"){dot.style.background="var(--warn)";dot.style.boxShadow="0 0 0 4px rgba(255,199,90,.18)"}else{dot.style.background="var(--danger)";dot.style.boxShadow="0 0 0 4px rgba(255,90,106,.18)"}}
+function showView(which){el("viewToday").classList.toggle("hidden",which!=="today");el("viewWeek").classList.toggle("hidden",which!=="week");el("viewEdit").classList.toggle("hidden",which!=="edit")}
+function todayDayKey(){const day=new Date().getDay();const map={1:"mon",2:"tue",3:"wed",4:"thu",5:"fri"};return map[day]||"mon"}
+function dayObjByKey(k){return DAYS.find(d=>d.key===k)||DAYS[0]}
+function escapeHtml(s){return String(s).replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
+function kv(k,v){const val=(v||"").trim()||"—";return `<div><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(val)}</div></div>`}
+function shortTripLine(trip){const t=trip.time||"—";const who=trip.pickup||"—";const to=trip.dropoff||"—";return `${t} • ${who} → ${to}`}
+function makeSelect(options,value,disabled){const s=document.createElement("select");s.className="select";s.disabled=!!disabled;const blank=document.createElement("option");blank.value="";blank.textContent="—";s.appendChild(blank);for(const opt of options){const o=document.createElement("option");o.value=opt;o.textContent=opt;s.appendChild(o)}s.value=value||"";return s}
+function openMapForLocation(loc){const q=(loc||"").trim();if(!q)return;const url=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;window.open(url,"_blank","noopener,noreferrer")}
+function updateLastSync(){const n=el("lastSync");if(!n)return;n.textContent=localStorage.getItem(LS.lastSync)||"Never"}
+function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=false;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
+
+function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);const realDow=new Date().getDay();
+  el("todayTitle").textContent=(realDow===0||realDow===6)?`Weekend: Next ${dobj.label}`:`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
+trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
+<div class="kv">${kv("Pick up",trip.pickup)}${kv("From",trip.from)}${kv("Time",trip.time)}${kv("Keep at your home",trip.keepHome)}${kv("Feed",trip.feed)}${kv("Drop off",trip.dropoff)}${kv("Drop off time",trip.dropoffTime)}</div>
+<div class="row"><button class="btn btn-primary" type="button" ${trip.dropoff?"":"disabled"}>Map</button></div>`;
+card.querySelector("button").addEventListener("click",()=>openMapForLocation(trip.dropoff));wrap.appendChild(card)})}
+
+function showDayInToday(dayKey){const dobj=dayObjByKey(dayKey);el("todayTitle").textContent=dobj.label;const trips=data.schedule[dayKey]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty)}else{trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
+<div class="kv">${kv("Pick up",trip.pickup)}${kv("From",trip.from)}${kv("Time",trip.time)}${kv("Keep at your home",trip.keepHome)}${kv("Feed",trip.feed)}${kv("Drop off",trip.dropoff)}${kv("Drop off time",trip.dropoffTime)}</div>
+<div class="row"><button class="btn btn-primary" type="button" ${trip.dropoff?"":"disabled"}>Map</button></div>`;
+card.querySelector("button").addEventListener("click",()=>openMapForLocation(trip.dropoff));wrap.appendChild(card)})}
+showView("today")}
+
+function renderWeekSummary(){const wrap=el("weekSummary");wrap.innerHTML="";for(const d of DAYS){const dayCard=document.createElement("div");dayCard.className="daySummary";const trips=data.schedule[d.key]||[];const lines=trips.slice(0,4).map(t=>`<div class="it">${escapeHtml(shortTripLine(t))}</div>`).join("");const more=trips.length>4?`<div class="muted small">+ ${trips.length-4} more…</div>`:"";dayCard.innerHTML=`<div class="d">${d.label}</div><div class="items">${trips.length?lines+more:`<div class="none">No trips</div>`}</div>`;dayCard.addEventListener("click",()=>showDayInToday(d.key));wrap.appendChild(dayCard)}}
+
+function newTrip(){return{id:cryptoId(),pickup:"",from:"",time:"",keepHome:"",feed:"",dropoff:"",dropoffTime:""}}
+
+function renderTripEditor(dayKey,trip,idx,count){
+  const disabled=isDadMode||!isEditUnlocked;
+  const root=document.createElement("div");
+  root.innerHTML=`<div class="tripEditHeader"><div class="left"><div class="t">Trip ${idx+1}</div><div class="s">${escapeHtml(shortTripLine(trip))}</div></div>
+  <div class="tripEditActions">
+    <button class="btnSm" type="button" ${disabled||idx===0?"disabled":""}>↑</button>
+    <button class="btnSm" type="button" ${disabled||idx===count-1?"disabled":""}>↓</button>
+    <button class="btnSm" type="button" ${trip.dropoff?"":"disabled"}>Map</button>
+    <button class="btnSm" type="button" ${disabled?"disabled":""}>Delete</button>
+  </div></div>
+  <div class="grid2">
+    <div class="field"><div class="label">Time</div><div class="slot" data-k="time"></div></div>
+    <div class="field"><div class="label">Pick up</div><div class="slot" data-k="pickup"></div></div>
+    <div class="field"><div class="label">From</div><div class="slot" data-k="from"></div></div>
+    <div class="field"><div class="label">Keep at your home</div><div class="slot" data-k="keepHome"></div></div>
+    <div class="field"><div class="label">Feed</div><div class="slot" data-k="feed"></div></div>
+    <div class="field"><div class="label">Drop off</div><div class="slot" data-k="dropoff"></div></div>
+    <div class="field"><div class="label">Drop off time</div><div class="slot" data-k="dropoffTime"></div></div>
+  </div>`;
+  const [btnUp,btnDown,btnMap,btnDel]=root.querySelectorAll(".btnSm");
+  btnMap.addEventListener("click",()=>openMapForLocation(trip.dropoff));
+  btnUp.addEventListener("click",()=>{if(idx<=0)return;const arr=data.schedule[dayKey];arr.splice(idx-1,0,arr.splice(idx,1)[0]);saveData();renderAll()});
+  btnDown.addEventListener("click",()=>{const arr=data.schedule[dayKey];if(idx>=arr.length-1)return;arr.splice(idx+1,0,arr.splice(idx,1)[0]);saveData();renderAll()});
+  btnDel.addEventListener("click",()=>{if(!confirm("Delete this trip?"))return;const arr=data.schedule[dayKey];const i=arr.findIndex(x=>x.id===trip.id);if(i>=0)arr.splice(i,1);saveData();renderAll();setStatus("Trip deleted.","Saved on this device.","ok")});
+  const slots=root.querySelectorAll(".slot");
+  const locations=data.locations;
+  for(const slot of slots){
+    const key=slot.dataset.k;
+    let options=[];
+    if(key==="pickup")options=PICKUP_OPTIONS;
+    else if(key==="from"||key==="dropoff")options=locations;
+    else if(key==="time"||key==="dropoffTime")options=TIME_OPTIONS;
+    else if(key==="keepHome"||key==="feed")options=YESNO;
+    const sel=makeSelect(options,trip[key],disabled);
+    sel.addEventListener("change",()=>{
+      trip[key]=sel.value;
+      saveData();
+      setStatus("Saved on this device.","To share: Sync → Save to GitHub.","ok");
+      renderToday();renderWeekSummary();renderEdit();showView("edit");
+    });
+    slot.appendChild(sel);
+  }
+  return root;
 }
 
 function renderEdit(){
@@ -193,13 +258,15 @@ function wireUI(){
     else{isEditUnlocked=settings.editPin?false:true;setStatus("Edit mode.",settings.editPin?"Tap Unlock Edit and enter PIN.":"Editing enabled (no PIN set).","ok");renderEdit();showView("edit")}
     renderAll();
   });
-  on("btnUnlock","click", async ()=>{
+  el("btnUnlock").addEventListener("click",async()=>{
+  // Single-button edit mode toggle.
   if(isDadMode){
-    // Enter edit mode
+    // Enter Edit Mode
     isDadMode=false;
+    // If a PIN is set, prompt now.
     if(settings.editPin){
       const pin=prompt("Enter PIN to edit:");
-      if(pin===null){ isDadMode=true; renderAll(); return; }
+      if(pin===null) { isDadMode=true; renderAll(); return; }
       if(String(pin).trim()!==String(settings.editPin).trim()){
         isDadMode=true;
         setStatus("Wrong PIN.","Editing stays locked.","err");
@@ -208,19 +275,15 @@ function wireUI(){
       }
     }
     isEditUnlocked=true;
-    const b=document.getElementById("btnUnlock");
-    if(b) b.textContent="Done";
     setStatus("Editing ON","Make changes, then press Sync.","ok");
     showView("edit");
     renderEdit();
     renderAll();
   } else {
-    // Exit edit mode
+    // Exit Edit Mode back to Dad (Read)
     isEditUnlocked=false;
     isDadMode=true;
-    const b=document.getElementById("btnUnlock");
-    if(b) b.textContent="Unlock Edit";
-    setStatus("Dad (Read) mode.","Tap Today or Week to view.","ok");
+    setStatus("Editing OFF","View mode for Dad.","ok");
     showView("today");
     renderAll();
   }
@@ -265,7 +328,7 @@ function wireUI(){
     addLocation(el("newLocation").value);el("newLocation").value="";
   });
   el("newLocation").addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();el("btnAddLocation").click()}});
-  on("btnSync","click", async()=>{ await saveToGitHub(); });
+  el("btnSync").addEventListener("click",async()=>{ await saveToGitHub(); });
     el("btnTestGitHub").addEventListener("click",testGitHub);
 }
 
@@ -277,38 +340,32 @@ function bootstrap(){
 }
 bootstrap();
 
-function updateLastSync(){
-  const ls=document.getElementById('lastSync');
-  if(!ls) return;
-  const t=Number(localStorage.getItem('lastSync')||'0');
-  ls.textContent = t ? new Date(t).toLocaleString() : 'Never';
-}
 
-async function bootstrap(){
-  try{
-    loadLocal();
-  }catch(e){
-    console.warn("loadLocal failed", e);
-  }
-  if(!schedule || !schedule.days){
-    // Try to fetch bundled data (works on http(s), may fail on file://)
+window.addEventListener("DOMContentLoaded", ()=>{
+  (async ()=>{
+    try{
+      loadData();
+    }catch(e){
+      console.warn("loadData failed", e);
+    }
     try{
       const res = await fetch("data/schedule.json?ts="+Date.now(), {cache:"no-store"});
       if(res.ok){
-        schedule = await res.json();
-        saveLocal();
+        const remote = await res.json();
+        if(remote && remote.days){
+          schedule = remote;
+          saveData();
+          setStatus("Loaded latest schedule.","(From GitHub Pages)","ok");
+        }
       }
-    }catch(e){}
-  }
-  if(!schedule || !schedule.days){
-    schedule = { version:1, days:{mon:[],tue:[],wed:[],thu:[],fri:[]}, customLocations:[] };
-    saveLocal();
-  }
-  // default mode
-  isDadMode=true; isEditUnlocked=false;
-  const b=document.getElementById("btnUnlock");
-  if(b) b.textContent="Unlock Edit";
-  updateLastSync();
-  setStatus("Dad (Read) mode.","Tap Today or Week to view.","ok");
-  goToday();
-}
+    }catch(e){
+      // ignore (offline / file://)
+    }
+    updateModeButtons();
+    updateLastSync();
+    showView("today");
+    renderToday();
+    renderWeekSummary();
+    renderEdit();
+  })();
+});
