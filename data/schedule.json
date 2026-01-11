@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-01-11T04:18:50.812Z",
+  "updatedAt": "",
   "locations": [
     "School",
     "Homebush Home",
@@ -8,36 +8,13 @@
     "Soccer Training",
     "Soccer Academy",
     "Edu Kingdom",
-    "Home",
-    "Piano"
+    "Home"
   ],
   "schedule": {
-    "mon": [
-      {
-        "id": "t_d35e495a96fdf_19baaf48519",
-        "pickup": "",
-        "from": "",
-        "time": "",
-        "keepHome": "",
-        "feed": "",
-        "dropoff": "",
-        "dropoffTime": ""
-      }
-    ],
+    "mon": [],
     "tue": [],
     "wed": [],
     "thu": [],
-    "fri": [
-      {
-        "id": "t_8ff39680a246b8_19baa9178a7",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "8:00am",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Swimming",
-        "dropoffTime": "8:30am"
-      }
-    ]
+    "fri": []
   }
 }
