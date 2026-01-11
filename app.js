@@ -169,7 +169,7 @@ function hasGitHubConfig(){return settings.ghOwner&&settings.ghRepo&&settings.gh
 function ghHeaders(){return{"Accept":"application/vnd.github+json","Authorization":`Bearer ${settings.ghToken}`,"X-GitHub-Api-Version":"2022-11-28"}}
 async function githubGetFile(){
   const url=`https://api.github.com/repos/${encodeURIComponent(settings.ghOwner)}/${encodeURIComponent(settings.ghRepo)}/contents/${settings.ghPath}?ref=${encodeURIComponent(settings.ghBranch)}`;
-  const res=await fetch(url,{headers:ghHeaders()});
+  const res=await fetch(url,{headers:ghHeaders(),cache:"no-store"});
   const body=await res.json();
   if(!res.ok) throw new Error(body?.message||`HTTP ${res.status}`);
   return body;
@@ -180,7 +180,7 @@ async function githubPutFile(contentStr,shaOrNull){
   const url=`https://api.github.com/repos/${encodeURIComponent(settings.ghOwner)}/${encodeURIComponent(settings.ghRepo)}/contents/${settings.ghPath}`;
   const payload={message:`Update schedule (${new Date().toLocaleString()})`,content:utf8ToB64(contentStr),branch:settings.ghBranch};
   if(shaOrNull) payload.sha=shaOrNull;
-  const res=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(payload)});
+  const res=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(payload),cache:"no-store"});
   const body=await res.json();
   if(!res.ok) throw new Error(body?.message||`HTTP ${res.status}`);
   return body;
@@ -192,19 +192,15 @@ function importPayload(obj){data=normalizeData(obj);saveData();}
 async function testGitHub(){
   if(!hasGitHubConfig()){setStatus("GitHub not configured.","Open Settings and fill owner/repo/branch/path/token.","warn");return false}
   try{await githubGetFile();setStatus("GitHub test OK.","Use Sync → Load / Save.","ok");return true}
-  catch(e){setStatus("GitHub test failed.",escapeHtml(String(e.message||e)),"err");return false}
+  catch(e){
+  const msg=String(e.message||e);
+  let nice=msg;
+  if(/Bad credentials/i.test(msg) || /Requires authentication/i.test(msg)) nice="Token rejected. Paste the fine‑grained token again.";
+  else if(/Not Found/i.test(msg)) nice="Not Found. Check owner/repo/branch/path AND ensure data/schedule.json exists in the repo.";
+  else if(/rate limit/i.test(msg)) nice="GitHub rate limit hit. Try again in a few minutes.";
+  setStatus("GitHub test failed.",escapeHtml(nice),"err");
+  return false;
 }
-async function loadFromGitHub(){
-  if(!await testGitHub())return;
-  try{
-    setStatus("Loading from GitHub…","Please wait…","warn");
-    const file=await githubGetFile();
-    const jsonStr=b64ToUtf8(file.content||"");
-    importPayload(JSON.parse(jsonStr));
-    localStorage.setItem(LS.lastSync,new Date().toLocaleString());
-    updateLastSync();renderAll();
-    setStatus("Loaded from GitHub.","This device is now up to date.","ok");
-  }catch(e){setStatus("Load failed.",escapeHtml(String(e.message||e)),"err")}
 }
 async function saveToGitHub(){
   if(!await testGitHub())return;
@@ -215,7 +211,14 @@ async function saveToGitHub(){
     localStorage.setItem(LS.lastSync,new Date().toLocaleString());
     updateLastSync();
     setStatus("Saved to GitHub.","Dad will see updates after refresh.","ok");
-  }catch(e){setStatus("Save failed.",escapeHtml(String(e.message||e)),"err")}
+    }catch(e){
+    const msg=String(e.message||e);
+    let nice=msg;
+    if(/Bad credentials/i.test(msg) || /Requires authentication/i.test(msg)) nice="Token rejected. Open Settings and paste the fine‑grained token again.";
+    else if(/Not Found/i.test(msg)) nice="Not Found. Check owner/repo/branch/path AND ensure data/schedule.json exists in the repo.";
+    else if(/does not match/i.test(msg) || /sha/i.test(msg)) nice="Another device saved a newer version. Press Sync again to save over the latest.";
+    setStatus("Save failed.",escapeHtml(nice),"err");
+  }
 }
 
 function renderAll(){
@@ -291,8 +294,10 @@ function wireUI(){
     addLocation(el("newLocation").value);el("newLocation").value="";
   });
   el("newLocation").addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();el("btnAddLocation").click()}});
-  el("btnSync").addEventListener("click",()=>{updateLastSync();el("dlgSync").showModal()});
-  el("btnLoad").addEventListener("click",loadFromGitHub);
+  el("btnSync").addEventListener("click",async()=>{
+    // Option A: Sync = Save (one-way).
+    await saveToGitHub();
+});
   el("btnSave").addEventListener("click",saveToGitHub);
   el("btnTestGitHub").addEventListener("click",testGitHub);
 }
