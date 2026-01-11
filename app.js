@@ -37,7 +37,7 @@ function applyDadFont(){document.body.classList.toggle("dad-large",settings.dadF
 function setStatus(line1,line2,kind="ok"){
   setText("statusLine1", line1||"");
   setText("statusLine2", line2||"");
-  const wrap = getEl("statusWrap");
+  const wrap = document.getElementById("statusWrap");
   if(!wrap) return;
   wrap.classList.remove("ok","err","warn");
   wrap.classList.add(kind);
@@ -193,15 +193,13 @@ function wireUI(){
     else{isEditUnlocked=settings.editPin?false:true;setStatus("Edit mode.",settings.editPin?"Tap Unlock Edit and enter PIN.":"Editing enabled (no PIN set).","ok");renderEdit();showView("edit")}
     renderAll();
   });
-  el("btnUnlock").addEventListener("click",async()=>{
-  // Single-button edit mode toggle.
+  on("btnUnlock","click", async ()=>{
   if(isDadMode){
-    // Enter Edit Mode
+    // Enter edit mode
     isDadMode=false;
-    // If a PIN is set, prompt now.
     if(settings.editPin){
       const pin=prompt("Enter PIN to edit:");
-      if(pin===null) { isDadMode=true; renderAll(); return; }
+      if(pin===null){ isDadMode=true; renderAll(); return; }
       if(String(pin).trim()!==String(settings.editPin).trim()){
         isDadMode=true;
         setStatus("Wrong PIN.","Editing stays locked.","err");
@@ -210,15 +208,19 @@ function wireUI(){
       }
     }
     isEditUnlocked=true;
+    const b=document.getElementById("btnUnlock");
+    if(b) b.textContent="Done";
     setStatus("Editing ON","Make changes, then press Sync.","ok");
     showView("edit");
     renderEdit();
     renderAll();
   } else {
-    // Exit Edit Mode back to Dad (Read)
+    // Exit edit mode
     isEditUnlocked=false;
     isDadMode=true;
-    setStatus("Editing OFF","View mode for Dad.","ok");
+    const b=document.getElementById("btnUnlock");
+    if(b) b.textContent="Unlock Edit";
+    setStatus("Dad (Read) mode.","Tap Today or Week to view.","ok");
     showView("today");
     renderAll();
   }
@@ -263,7 +265,7 @@ function wireUI(){
     addLocation(el("newLocation").value);el("newLocation").value="";
   });
   el("newLocation").addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();el("btnAddLocation").click()}});
-  el("btnSync").addEventListener("click", async()=>{ await saveToGitHub(); });
+  on("btnSync","click", async()=>{ await saveToGitHub(); });
     el("btnTestGitHub").addEventListener("click",testGitHub);
 }
 
@@ -274,3 +276,39 @@ function bootstrap(){
   wireUI();renderAll();
 }
 bootstrap();
+
+function updateLastSync(){
+  const ls=document.getElementById('lastSync');
+  if(!ls) return;
+  const t=Number(localStorage.getItem('lastSync')||'0');
+  ls.textContent = t ? new Date(t).toLocaleString() : 'Never';
+}
+
+async function bootstrap(){
+  try{
+    loadLocal();
+  }catch(e){
+    console.warn("loadLocal failed", e);
+  }
+  if(!schedule || !schedule.days){
+    // Try to fetch bundled data (works on http(s), may fail on file://)
+    try{
+      const res = await fetch("data/schedule.json?ts="+Date.now(), {cache:"no-store"});
+      if(res.ok){
+        schedule = await res.json();
+        saveLocal();
+      }
+    }catch(e){}
+  }
+  if(!schedule || !schedule.days){
+    schedule = { version:1, days:{mon:[],tue:[],wed:[],thu:[],fri:[]}, customLocations:[] };
+    saveLocal();
+  }
+  // default mode
+  isDadMode=true; isEditUnlocked=false;
+  const b=document.getElementById("btnUnlock");
+  if(b) b.textContent="Unlock Edit";
+  updateLastSync();
+  setStatus("Dad (Read) mode.","Tap Today or Week to view.","ok");
+  goToday();
+}
