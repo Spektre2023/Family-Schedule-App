@@ -14,6 +14,11 @@ const DEFAULT_LOCATIONS=["School","Homebush Home","Swimming","Soccer Training","
 const LS={data:"fs_optionA_data_v1",settings:"fs_optionA_settings_v1",lastSync:"fs_optionA_lastSync_v1"};
 const DEFAULT_SETTINGS={dadFont:"large",editPin:"",ghOwner:"",ghRepo:"",ghBranch:"main",ghPath:"data/schedule.json",ghToken:""};
 const el=(id)=>document.getElementById(id);
+const setText=(id,txt)=>{const n=el(id); if(n) n.textContent=txt;};
+const setHTML=(id,html)=>{const n=el(id); if(n) n.innerHTML=html;};
+const setDisabled=(id,dis)=>{const n=el(id); if(n) n.disabled=!!dis;};
+const on=(id,ev,fn)=>{const n=el(id); if(n) n.addEventListener(ev,fn);};
+
 function safeParse(s,f){try{return JSON.parse(s)}catch{return f}}
 function pad2(n){return String(n).padStart(2,"0")}
 function formatTime(h24,m){const ampm=h24>=12?"pm":"am";let h=h24%12;if(h===0)h=12;return `${h}:${pad2(m)}${ampm}`}
@@ -34,7 +39,7 @@ function saveSettings(next){settings={...settings,...next};localStorage.setItem(
 function loadData(){const d=safeParse(localStorage.getItem(LS.data),null);return normalizeData(d)}
 function saveData(){data.updatedAt=new Date().toISOString();localStorage.setItem(LS.data,JSON.stringify(data))}
 function applyDadFont(){document.body.classList.toggle("dad-large",settings.dadFont==="large");document.body.classList.toggle("dad-xlarge",settings.dadFont==="xlarge")}
-function setStatus(line1,line2,kind="ok"){el("statusLine1").textContent=line1||"";el("statusLine2").innerHTML=line2||"";const dot=el("statusDot");if(kind==="ok"){dot.style.background="var(--accent2)";dot.style.boxShadow="0 0 0 4px rgba(62,209,154,.18)"}else if(kind==="warn"){dot.style.background="var(--warn)";dot.style.boxShadow="0 0 0 4px rgba(255,199,90,.18)"}else{dot.style.background="var(--danger)";dot.style.boxShadow="0 0 0 4px rgba(255,90,106,.18)"}}
+function setStatus(line1,line2,kind="ok"){setText("statusLine1",=line1||"";el("statusLine2").innerHTML=line2||"";const dot=el("statusDot");if(kind==="ok"){if(dot) dot.style.background="var(--accent2)";if(dot) dot.style.boxShadow="0 0 0 4px rgba(62,209,154,.18)"}else if(kind==="warn"){if(dot) dot.style.background="var(--warn)";if(dot) dot.style.boxShadow="0 0 0 4px rgba(255,199,90,.18)"}else{if(dot) dot.style.background="var(--danger)";if(dot) dot.style.boxShadow="0 0 0 4px rgba(255,90,106,.18)"}}
 function showView(which){el("viewToday").classList.toggle("hidden",which!=="today");el("viewWeek").classList.toggle("hidden",which!=="week");el("viewEdit").classList.toggle("hidden",which!=="edit")}
 function todayDayKey(){const day=new Date().getDay();const map={1:"mon",2:"tue",3:"wed",4:"thu",5:"fri"};return map[day]||"mon"}
 function dayObjByKey(k){return DAYS.find(d=>d.key===k)||DAYS[0]}
@@ -46,9 +51,9 @@ function openMapForLocation(loc){const q=(loc||"").trim();if(!q)return;const url
 function updateLastSync(){
   const _ls=document.getElementById("lastSync");
 const _ls=document.getElementById("lastSync"); if(_ls) _ls.textContent=localStorage.getItem(LS.lastSync)||"Never"}
-function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=false;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
+function updateModeButtons(){setText("btnMode",isDadMode?"Dad (Read)":"Edit");el("btnUnlock").disabled=false;setText("btnUnlock",isEditUnlocked?"Editing On":"Unlock Edit"}
 
-function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);el("todayTitle").textContent=`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
+function renderToday(){const dk=todayDayKey());const dobj=dayObjByKey(dk);el("todayTitle").textContent=`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
 trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
 <div class="kv">${kv("Pick up",trip.pickup)}${kv("From",trip.from)}${kv("Time",trip.time)}${kv("Keep at your home",trip.keepHome)}${kv("Feed",trip.feed)}${kv("Drop off",trip.dropoff)}${kv("Drop off time",trip.dropoffTime)}</div>
 <div class="row"><button class="btn btn-primary" type="button" ${trip.dropoff?"":"disabled"}>Map</button></div>`;

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-01-11T03:03:35.518Z",
+  "updatedAt": "",
   "locations": [
     "School",
     "Homebush Home",
@@ -11,75 +11,10 @@
     "Home"
   ],
   "schedule": {
-    "mon": [
-      {
-        "id": "t_d10090777131c_19baabfb0ba",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "8:00am",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Swimming",
-        "dropoffTime": "8:30am"
-      }
-    ],
-    "tue": [
-      {
-        "id": "t_6400da0b05e73_19baace7dd5",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "8:00am",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Swimming",
-        "dropoffTime": "8:30am"
-      }
-    ],
-    "wed": [
-      {
-        "id": "t_b533aa3c845068_19baafcca16",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "8:00am",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Swimming",
-        "dropoffTime": "8:30am"
-      }
-    ],
-    "thu": [
-      {
-        "id": "t_8f1823987ea48_19bab01f4ec",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "8:00am",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Swimming",
-        "dropoffTime": "8:30am"
-      }
-    ],
-    "fri": [
-      {
-        "id": "t_6ebb049bd4a48_19baac1ae2e",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "8:00am",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Swimming",
-        "dropoffTime": "8:30am"
-      },
-      {
-        "id": "t_fe1ddac5ee8e1_19baac22f3d",
-        "pickup": "Lincoln",
-        "from": "Homebush Home",
-        "time": "4:00pm",
-        "keepHome": "No",
-        "feed": "No",
-        "dropoff": "Edu Kingdom",
-        "dropoffTime": "4:30pm"
-      }
-    ]
+    "mon": [],
+    "tue": [],
+    "wed": [],
+    "thu": [],
+    "fri": []
   }
 }
