@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "updatedAt": "",
+  "locations": [
+    "School",
+    "Homebush Home",
+    "Swimming",
+    "Soccer Training",
+    "Soccer Academy",
+    "Edu Kingdom",
+    "Home"
+  ],
+  "schedule": {
+    "mon": [],
+    "tue": [],
+    "wed": [],
+    "thu": [],
+    "fri": []
+  }
+}

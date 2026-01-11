@@ -1,0 +1,102 @@
+:root{
+  --bg:#0b0f14;--card:rgba(255,255,255,.06);--border:rgba(255,255,255,.14);
+  --text:#f2f6fb;--muted:#b3c0d1;--accent:#4aa3ff;--accent2:#3ed19a;
+  --warn:#ffc75a;--danger:#ff5a6a;--shadow:0 10px 28px rgba(0,0,0,.35);--r:16px;
+  --mon:rgba(74,163,255,.10);--tue:rgba(62,209,154,.10);--wed:rgba(255,199,90,.10);
+  --thu:rgba(255,90,106,.10);--fri:rgba(190,140,255,.10);
+}
+*{box-sizing:border-box} html,body{height:100%}
+body{
+  margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;color:var(--text);
+  background:radial-gradient(1200px 800px at 50% -10%, rgba(74,163,255,.25), transparent 60%),
+            radial-gradient(900px 700px at 10% 15%, rgba(62,209,154,.18), transparent 60%),var(--bg);
+}
+.app-header{
+  position:sticky;top:0;z-index:10;padding:14px 12px;background:rgba(11,15,20,.86);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--border);
+  display:flex;gap:12px;justify-content:space-between;align-items:flex-start;
+}
+.title .h1{font-weight:900;font-size:20px}
+.title .sub{color:var(--muted);font-size:12px;margin-top:4px;max-width:54ch}
+.actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;min-width:220px}
+.btn{
+  padding:10px 12px;border-radius:12px;border:1px solid var(--border);
+  background:rgba(255,255,255,.06);color:var(--text);font-weight:850;font-size:14px;
+  cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:rgba(74,163,255,.16);border-color:rgba(74,163,255,.45)}
+.main{max-width:980px;margin:0 auto;padding:12px;display:flex;flex-direction:column;gap:12px}
+.card{
+  border:1px solid var(--border);border-radius:var(--r);
+  background:linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+  box-shadow:var(--shadow);padding:12px;
+}
+.hidden{display:none}
+.status{display:flex;gap:10px;align-items:center}
+.dot{width:10px;height:10px;border-radius:99px;background:var(--accent2);box-shadow:0 0 0 4px rgba(62,209,154,.18)}
+.statusText .line1{font-weight:900}
+.statusText .line2{color:var(--muted);font-size:13px;margin-top:2px}
+.viewHeader{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.h2{font-weight:900;font-size:18px}
+.muted{color:var(--muted);font-size:13px;line-height:1.35}
+.small{font-size:12px}
+.stack{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.tripCard{border:1px solid rgba(255,255,255,.12);border-radius:var(--r);background:rgba(0,0,0,.18);padding:12px}
+.tripTop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.tripTitle{font-weight:950;font-size:16px}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);font-size:12px;font-weight:900;color:rgba(242,246,251,.92)}
+.kv{margin-top:10px;display:grid;grid-template-columns:1fr;gap:10px}
+@media (min-width:680px){.kv{grid-template-columns:1fr 1fr}}
+.k{color:var(--muted);font-size:12px;font-weight:900}
+.v{font-size:18px;font-weight:950;margin-top:4px;letter-spacing:.2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.input,.select{
+  width:100%;padding:12px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(0,0,0,.20);color:var(--text);font-size:15px;font-weight:850;outline:none;
+}
+.select{appearance:auto}
+.field .label{color:var(--muted);font-size:12px;margin-bottom:6px;font-weight:900}
+.field .hint{color:rgba(179,192,209,.95);font-size:12px;margin-top:6px}
+.editDays{display:flex;flex-direction:column;gap:12px;margin-top:10px}
+.dayBlock{border:1px solid rgba(255,255,255,.12);border-radius:var(--r);background:rgba(0,0,0,.14);overflow:hidden}
+.dayHead{padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.10)}
+.dayName{font-weight:950;font-size:16px}
+.dayTint.mon{background:linear-gradient(180deg, var(--mon), transparent)}
+.dayTint.tue{background:linear-gradient(180deg, var(--tue), transparent)}
+.dayTint.wed{background:linear-gradient(180deg, var(--wed), transparent)}
+.dayTint.thu{background:linear-gradient(180deg, var(--thu), transparent)}
+.dayTint.fri{background:linear-gradient(180deg, var(--fri), transparent)}
+.dayBody{padding:12px}
+.tripEdit{border:1px solid rgba(255,255,255,.12);border-radius:var(--r);background:rgba(0,0,0,.18);padding:12px;margin-top:10px}
+.tripEdit:first-child{margin-top:0}
+.tripEditHeader{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.tripEditHeader .left{display:flex;flex-direction:column;gap:4px}
+.tripEditHeader .t{font-weight:950}
+.tripEditHeader .s{color:var(--muted);font-size:12px;font-weight:800}
+.tripEditActions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.btnSm{
+  padding:8px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.06);color:var(--text);font-weight:900;font-size:13px;cursor:pointer;
+}
+.grid2{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+@media (min-width:680px){.grid2{grid-template-columns:1fr 1fr}}
+.sep{border:none;border-top:1px solid rgba(255,255,255,.12);margin:14px 0}
+.locList{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.locItem{display:flex;gap:8px;align-items:center;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.16)}
+.locName{flex:1;font-weight:900}
+.weekSummary{display:flex;flex-direction:column;gap:10px;margin-top:10px}
+.daySummary{padding:12px;border-radius:var(--r);border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.16);cursor:pointer}
+.daySummary .d{font-weight:950}
+.daySummary .items{margin-top:6px;color:rgba(242,246,251,.92)}
+.daySummary .items .it{margin-top:4px;color:rgba(242,246,251,.92)}
+.daySummary .none{color:var(--muted)}
+.dlg{border:1px solid rgba(255,255,255,.16);border-radius:16px;background:rgba(18,26,36,.98);
+  color:var(--text);width:min(760px, calc(100% - 22px));box-shadow:var(--shadow)}
+.dlg::backdrop{background:rgba(0,0,0,.55)}
+.dlgInner{margin:0;padding:12px}
+.dlgHeader{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+@media (min-width:680px){.grid{grid-template-columns:1fr 1fr}.full{grid-column:1/-1}}
+.dad-large .v{font-size:18px}.dad-xlarge .v{font-size:20px}
