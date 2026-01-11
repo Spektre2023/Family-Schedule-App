@@ -124,3 +124,17 @@ select.select option{
 }
 /* Encourage dark native dropdown rendering where supported */
 select.select{ color-scheme: dark; }
+
+.ver{
+  display:inline-block;
+  margin-left:.5rem;
+  padding:.15rem .45rem;
+  border-radius:999px;
+  font-size:.75rem;
+  font-weight:700;
+  letter-spacing:.02em;
+  background: rgba(74,163,255,.16);
+  border: 1px solid rgba(74,163,255,.35);
+  color: rgba(242,246,251,.95);
+  vertical-align: middle;
+}

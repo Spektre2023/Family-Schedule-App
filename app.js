@@ -1,3 +1,11 @@
+function effectiveTodayKey(){
+  const d=new Date();
+  const dow=d.getDay();
+  // 0=Sun,6=Sat. App is Mon–Fri; weekend -> show next Monday.
+  if(dow===0||dow===6) return 'mon';
+  return ['sun','mon','tue','wed','thu','fri','sat'][dow];
+}
+
 // Family Schedule — Option A (Trips per Day)
 const DAYS=[{key:"mon",label:"Monday",tint:"mon"},{key:"tue",label:"Tuesday",tint:"tue"},{key:"wed",label:"Wednesday",tint:"wed"},{key:"thu",label:"Thursday",tint:"thu"},{key:"fri",label:"Friday",tint:"fri"}];
 const PICKUP_OPTIONS=["Lincoln","Evelyn","Both"];
@@ -319,9 +327,7 @@ function wireUI(){
     addLocation(el("newLocation").value);el("newLocation").value="";
   });
   el("newLocation").addEventListener("keydown",(e)=>{if(e.key==="Enter"){e.preventDefault();el("btnAddLocation").click()}});
-  el("btnSync").addEventListener("click",async()=>{
-  await saveToGitHub();
-});
+  el("btnSync").addEventListener("click",async()=>{ await saveToGitHub(); });
     el("btnTestGitHub").addEventListener("click",testGitHub);
 }
 
