@@ -9,7 +9,7 @@
 <body>
   <header class="app-header">
     <div class="title">
-      <div class="h1">Family Schedule <span class="ver">v1.5</span></div>
+      <div class="h1">Family Schedule <span class="ver">v1.5-final</span></div>
       <div class="sub">Trips per day • Mon–Fri • Big + simple for Dad</div>
     </div>
 
@@ -18,7 +18,7 @@
       <button id="btnWeek" class="btn">Week</button>
       <button id="btnMode" class="btn">Dad (Read)</button>
       <button id="btnUnlock" class="btn btn-primary">Unlock Edit</button>
-      <button id="btnSync" class="btn btn-primary">Sync</button>
+      <button id="btnSync" type="button" onclick="saveToGitHub()" class="btn btn-primary">Sync</button>
       <button id="btnSettings" class="btn">Settings</button>
     </div>
   </header>
@@ -135,7 +135,6 @@
         <button id="btnTestGitHub" type="button" class="btn">Test GitHub</button>
         <button id="btnResetLocal" type="button" class="btn">Reset Local</button>
         <button id="btnSaveSettings" type="button" class="btn btn-primary">Save</button>
-            <button id="btnTestToken" class="btn secondary" type="button">Test Token</button>
       </div>
     </form>
   </dialog>
@@ -155,6 +154,5 @@
   </dialog>
 
   <script src="app.js"></script>
-<div id="syncProgress" style="display:none"></div>
 </body>
 </html>

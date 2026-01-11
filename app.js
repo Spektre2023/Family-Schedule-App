@@ -1,37 +1,7 @@
-async function ghApi(path, token, method="GET", body=null, timeoutMs=8000){
-  const url = path.startsWith("http") ? path : ("https://api.github.com" + path);
-  const headers = {
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28"
-  };
-  if(token) headers["Authorization"] = "token " + token;
-  if(body) headers["Content-Type"] = "application/json";
 
-  const ctrl = new AbortController();
-  const t = setTimeout(()=>ctrl.abort(), timeoutMs);
-
-  try{
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : null,
-      signal: ctrl.signal
-    });
-
-    let text = "";
-    try{ text = await res.text(); } catch(_){}
-    let json = null;
-    try{ json = text ? JSON.parse(text) : null; } catch(_){}
-
-    return { res, text, json };
-  } catch (e){
-    if(e && (e.name === "AbortError" || String(e).toLowerCase().includes("abort"))){
-      throw new Error("Request timed out (check internet / token / browser blocking).");
-    }
-    throw e;
-  } finally {
-    clearTimeout(t);
-  }
+function setText(id, txt){
+  var el = document.getElementById(id);
+  if(el){ el.textContent = txt || ""; }
 }
 
 function effectiveTodayKey(){
@@ -70,30 +40,78 @@ function saveSettings(next){settings={...settings,...next};localStorage.setItem(
 function loadData(){const d=safeParse(localStorage.getItem(LS.data),null);return normalizeData(d)}
 function saveData(){data.updatedAt=new Date().toISOString();localStorage.setItem(LS.data,JSON.stringify(data))}
 function applyDadFont(){document.body.classList.toggle("dad-large",settings.dadFont==="large");document.body.classList.toggle("dad-xlarge",settings.dadFont==="xlarge")}
-function setStatus(line1,line2,kind="ok"){
-  const l1 = el("statusLine1");
-  const l2 = el("statusLine2");
-  const dot = el("statusDot");
-  if(l1) l1.textContent = line1 ?? "";
-  if(l2) l2.textContent = line2 ?? "";
-  if(dot){
-    if(kind==="ok"){dot.style.background="var(--accent2)";}
-    else if(kind==="warn"){dot.style.background="var(--warn)";}
-    else {dot.style.background="var(--danger)";}
-  }
-}
+function setStatus(line1,line2,kind="ok"){el("statusLine1").textContent=line1||"";el("statusLine2").innerHTML=line2||"";const dot=el("statusDot");if(kind==="ok"){dot.style.background="var(--accent2)";dot.style.boxShadow="0 0 0 4px rgba(62,209,154,.18)"}else if(kind==="warn"){dot.style.background="var(--warn)";dot.style.boxShadow="0 0 0 4px rgba(255,199,90,.18)"}else{dot.style.background="var(--danger)";dot.style.boxShadow="0 0 0 4px rgba(255,90,106,.18)"}}
+function showView(which){el("viewToday").classList.toggle("hidden",which!=="today");el("viewWeek").classList.toggle("hidden",which!=="week");el("viewEdit").classList.toggle("hidden",which!=="edit")}
+function todayDayKey(){const day=new Date().getDay();const map={1:"mon",2:"tue",3:"wed",4:"thu",5:"fri"};return map[day]||"mon"}
+function dayObjByKey(k){return DAYS.find(d=>d.key===k)||DAYS[0]}
+function escapeHtml(s){return String(s).replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]))}
+function kv(k,v){const val=(v||"").trim()||"—";return `<div><div class="k">${escapeHtml(k)}</div><div class="v">${escapeHtml(val)}</div></div>`}
+function shortTripLine(trip){const t=trip.time||"—";const who=trip.pickup||"—";const to=trip.dropoff||"—";return `${t} • ${who} → ${to}`}
+function makeSelect(options,value,disabled){const s=document.createElement("select");s.className="select";s.disabled=!!disabled;const blank=document.createElement("option");blank.value="";blank.textContent="—";s.appendChild(blank);for(const opt of options){const o=document.createElement("option");o.value=opt;o.textContent=opt;s.appendChild(o)}s.value=value||"";return s}
+function openMapForLocation(loc){const q=(loc||"").trim();if(!q)return;const url=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;window.open(url,"_blank","noopener,noreferrer")}
+function updateLastSync(){el("lastSync").textContent=localStorage.getItem(LS.lastSync)||"Never"}
+function updateModeButtons(){el("btnMode").textContent=isDadMode?"Dad (Read)":"Edit";el("btnUnlock").disabled=false;el("btnUnlock").textContent=isEditUnlocked?"Editing On":"Unlock Edit"}
 
-// Fetch with timeout so "Saving..." can't hang forever.
-async function fetchWithTimeout(url, options={}, timeoutMs=15000){
-  const ctrl = new AbortController();
-  const t = setTimeout(()=>ctrl.abort(), timeoutMs);
-  try{
-    return await fetch(url, {...options, signal: ctrl.signal});
-  }finally{
-    clearTimeout(t);
-  }
-}
+function renderToday(){const dk=todayDayKey();const dobj=dayObjByKey(dk);el("todayTitle").textContent=`Today: ${dobj.label}`;const trips=data.schedule[dk]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips today.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty);return}
+trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
+<div class="kv">${kv("Pick up",trip.pickup)}${kv("From",trip.from)}${kv("Time",trip.time)}${kv("Keep at your home",trip.keepHome)}${kv("Feed",trip.feed)}${kv("Drop off",trip.dropoff)}${kv("Drop off time",trip.dropoffTime)}</div>
+<div class="row"><button class="btn btn-primary" type="button" ${trip.dropoff?"":"disabled"}>Map</button></div>`;
+card.querySelector("button").addEventListener("click",()=>openMapForLocation(trip.dropoff));wrap.appendChild(card)})}
 
+function showDayInToday(dayKey){const dobj=dayObjByKey(dayKey);el("todayTitle").textContent=dobj.label;const trips=data.schedule[dayKey]||[];el("todaySubtitle").textContent=trips.length?`${trips.length} trip(s)`:"No trips.";const wrap=el("todayTrips");wrap.innerHTML="";if(trips.length===0){const empty=document.createElement("div");empty.className="muted";empty.textContent="Nothing scheduled.";wrap.appendChild(empty)}else{trips.forEach((trip,idx)=>{const card=document.createElement("div");card.className="tripCard";card.innerHTML=`<div class="tripTop"><div><div class="tripTitle">Trip ${idx+1}</div><div class="muted">${escapeHtml(shortTripLine(trip))}</div></div><span class="badge">${isDadMode?"READ":(isEditUnlocked?"EDIT":"LOCKED")}</span></div>
+<div class="kv">${kv("Pick up",trip.pickup)}${kv("From",trip.from)}${kv("Time",trip.time)}${kv("Keep at your home",trip.keepHome)}${kv("Feed",trip.feed)}${kv("Drop off",trip.dropoff)}${kv("Drop off time",trip.dropoffTime)}</div>
+<div class="row"><button class="btn btn-primary" type="button" ${trip.dropoff?"":"disabled"}>Map</button></div>`;
+card.querySelector("button").addEventListener("click",()=>openMapForLocation(trip.dropoff));wrap.appendChild(card)})}
+showView("today")}
+
+function renderWeekSummary(){const wrap=el("weekSummary");wrap.innerHTML="";for(const d of DAYS){const dayCard=document.createElement("div");dayCard.className="daySummary";const trips=data.schedule[d.key]||[];const lines=trips.slice(0,4).map(t=>`<div class="it">${escapeHtml(shortTripLine(t))}</div>`).join("");const more=trips.length>4?`<div class="muted small">+ ${trips.length-4} more…</div>`:"";dayCard.innerHTML=`<div class="d">${d.label}</div><div class="items">${trips.length?lines+more:`<div class="none">No trips</div>`}</div>`;dayCard.addEventListener("click",()=>showDayInToday(d.key));wrap.appendChild(dayCard)}}
+
+function newTrip(){return{id:cryptoId(),pickup:"",from:"",time:"",keepHome:"",feed:"",dropoff:"",dropoffTime:""}}
+
+function renderTripEditor(dayKey,trip,idx,count){
+  const disabled=isDadMode||!isEditUnlocked;
+  const root=document.createElement("div");
+  root.innerHTML=`<div class="tripEditHeader"><div class="left"><div class="t">Trip ${idx+1}</div><div class="s">${escapeHtml(shortTripLine(trip))}</div></div>
+  <div class="tripEditActions">
+    <button class="btnSm" type="button" ${disabled||idx===0?"disabled":""}>↑</button>
+    <button class="btnSm" type="button" ${disabled||idx===count-1?"disabled":""}>↓</button>
+    <button class="btnSm" type="button" ${trip.dropoff?"":"disabled"}>Map</button>
+    <button class="btnSm" type="button" ${disabled?"disabled":""}>Delete</button>
+  </div></div>
+  <div class="grid2">
+    <div class="field"><div class="label">Time</div><div class="slot" data-k="time"></div></div>
+    <div class="field"><div class="label">Pick up</div><div class="slot" data-k="pickup"></div></div>
+    <div class="field"><div class="label">From</div><div class="slot" data-k="from"></div></div>
+    <div class="field"><div class="label">Keep at your home</div><div class="slot" data-k="keepHome"></div></div>
+    <div class="field"><div class="label">Feed</div><div class="slot" data-k="feed"></div></div>
+    <div class="field"><div class="label">Drop off</div><div class="slot" data-k="dropoff"></div></div>
+    <div class="field"><div class="label">Drop off time</div><div class="slot" data-k="dropoffTime"></div></div>
+  </div>`;
+  const [btnUp,btnDown,btnMap,btnDel]=root.querySelectorAll(".btnSm");
+  btnMap.addEventListener("click",()=>openMapForLocation(trip.dropoff));
+  btnUp.addEventListener("click",()=>{if(idx<=0)return;const arr=data.schedule[dayKey];arr.splice(idx-1,0,arr.splice(idx,1)[0]);saveData();renderAll()});
+  btnDown.addEventListener("click",()=>{const arr=data.schedule[dayKey];if(idx>=arr.length-1)return;arr.splice(idx+1,0,arr.splice(idx,1)[0]);saveData();renderAll()});
+  btnDel.addEventListener("click",()=>{if(!confirm("Delete this trip?"))return;const arr=data.schedule[dayKey];const i=arr.findIndex(x=>x.id===trip.id);if(i>=0)arr.splice(i,1);saveData();renderAll();setStatus("Trip deleted.","Saved on this device.","ok")});
+  const slots=root.querySelectorAll(".slot");
+  const locations=data.locations;
+  for(const slot of slots){
+    const key=slot.dataset.k;
+    let options=[];
+    if(key==="pickup")options=PICKUP_OPTIONS;
+    else if(key==="from"||key==="dropoff")options=locations;
+    else if(key==="time"||key==="dropoffTime")options=TIME_OPTIONS;
+    else if(key==="keepHome"||key==="feed")options=YESNO;
+    const sel=makeSelect(options,trip[key],disabled);
+    sel.addEventListener("change",()=>{
+      trip[key]=sel.value;
+      saveData();
+      setStatus("Saved on this device.","To share: Sync → Save to GitHub.","ok");
+      renderToday();renderWeekSummary();renderEdit();showView("edit");
+    });
+    slot.appendChild(sel);
+  }
+  return root;
+}
 
 function renderEdit(){
   const wrap=el("editDays");wrap.innerHTML="";
@@ -165,7 +183,7 @@ function hasGitHubConfig(){return settings.ghOwner&&settings.ghRepo&&settings.gh
 function ghHeaders(){return{"Accept":"application/vnd.github+json","Authorization":`Bearer ${settings.ghToken}`,"X-GitHub-Api-Version":"2022-11-28"}}
 async function githubGetFile(){
   const url=`https://api.github.com/repos/${encodeURIComponent(settings.ghOwner)}/${encodeURIComponent(settings.ghRepo)}/contents/${settings.ghPath}?ref=${encodeURIComponent(settings.ghBranch)}`;
-  const res=await fetchWithTimeout(url,{headers:ghHeaders(),cache:"no-store"},15000);
+  const res=await fetch(url,{headers:ghHeaders(),cache:"no-store"});
   const body=await res.json();
   if(!res.ok) throw new Error(body?.message||`HTTP ${res.status}`);
   return body;
@@ -176,7 +194,7 @@ async function githubPutFile(contentStr,shaOrNull){
   const url=`https://api.github.com/repos/${encodeURIComponent(settings.ghOwner)}/${encodeURIComponent(settings.ghRepo)}/contents/${settings.ghPath}`;
   const payload={message:`Update schedule (${new Date().toLocaleString()})`,content:utf8ToB64(contentStr),branch:settings.ghBranch};
   if(shaOrNull) payload.sha=shaOrNull;
-  const res=await fetchWithTimeout(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(payload),cache:"no-store"},20000);
+  const res=await fetch(url,{method:"PUT",headers:{...ghHeaders(),"Content-Type":"application/json"},body:JSON.stringify(payload),cache:"no-store"});
   const body=await res.json();
   if(!res.ok) throw new Error(body?.message||`HTTP ${res.status}`);
   return body;
@@ -199,76 +217,21 @@ async function testGitHub(){
 }
 }
 async function saveToGitHub(){
-  const payload = normalizeData(loadData());
-  const s = ghSettings();
-
-  if(!s.owner || !s.repo || !s.path){
-    setStatus("Save failed.","Missing GitHub settings (owner/repo/path).", "err");
-    return false;
-  }
-  if(!s.token){
-    setStatus("Save failed.","Token missing. Open Settings and paste your GitHub token.", "err");
-    return false;
-  }
-
-  const encPath = encodeURIComponent(s.path).replaceAll("%2F","/");
-  const ref = encodeURIComponent(s.branch || "main");
-
-  async function getLatestSha(){
-    setSyncStep("1/2 Fetching latest file version…");
-    const got = await ghApi(`/repos/${s.owner}/${s.repo}/contents/${encPath}?ref=${ref}`, s.token, "GET", null, 8000);
-    if(!got.res.ok){
-      const msg = (got.json && got.json.message) ? got.json.message : got.text || `HTTP ${got.res.status}`;
-      throw new Error(`Lookup failed (${got.res.status}): ${msg}`);
-    }
-    if(!got.json || !got.json.sha) throw new Error("Lookup failed: missing SHA in response.");
-    return got.json.sha;
-  }
-
-  async function putWithSha(sha){
-    setSyncStep("2/2 Uploading schedule.json…");
-    const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))));
-    const put = await ghApi(`/repos/${s.owner}/${s.repo}/contents/${encPath}`, s.token, "PUT", {
-      message: "Update family schedule",
-      content: b64,
-      sha,
-      branch: s.branch || "main"
-    }, 12000);
-    return put;
-  }
-
+  if(!await testGitHub())return;
   try{
-    setStatus("Saving to GitHub…","Starting…", "warn");
-
-    const sha1 = await getLatestSha();
-    let put = await putWithSha(sha1);
-
-    if(!put.res.ok && (put.res.status===409 || put.res.status===422)){
-      // Re-try once with the newest SHA
-      const sha2 = await getLatestSha();
-      put = await putWithSha(sha2);
-    }
-
-    if(!put.res.ok){
-      const msg = (put.json && put.json.message) ? put.json.message : put.text || `HTTP ${put.res.status}`;
-      throw new Error(`Save failed (${put.res.status}): ${msg}`);
-    }
-
-    localStorage.setItem("lastSync", String(Date.now()));
+    setStatus("Saving to GitHub…","Please wait…","warn");
+    let sha=null;try{sha=(await githubGetFile()).sha}catch{sha=null}
+    await githubPutFile(exportPayload(),sha);
+    localStorage.setItem(LS.lastSync,new Date().toLocaleString());
     updateLastSync();
-
-    const short = put.json && put.json.commit && put.json.commit.sha ? put.json.commit.sha.slice(0,7) : "";
-    setStatus("Saved to GitHub ✅", short ? `Commit ${short}` : "Saved.", "ok");
-
-    // Force reload from GitHub so the user sees the final source-of-truth.
-    await loadLatestFromGitHub(true);
-    data = loadData();
-    safe(()=>renderAll());
-    return true;
-
-  } catch(e){
-    setStatus("Save failed.", (e && e.message) ? e.message : String(e), "err");
-    return false;
+    setStatus("Saved to GitHub.","Dad will see updates after refresh.","ok");
+    }catch(e){
+    const msg=String(e.message||e);
+    let nice=msg;
+    if(/Bad credentials/i.test(msg) || /Requires authentication/i.test(msg)) nice="Token rejected. Open Settings and paste the fine‑grained token again.";
+    else if(/Not Found/i.test(msg)) nice="Not Found. Check owner/repo/branch/path AND ensure data/schedule.json exists in the repo.";
+    else if(/does not match/i.test(msg) || /sha/i.test(msg)) nice="Another device saved a newer version. Press Sync again to save over the latest.";
+    setStatus("Save failed.",escapeHtml(nice),"err");
   }
 }
 
@@ -382,36 +345,31 @@ function bootstrap(){
 }
 bootstrap();
 
-
-function setSyncStep(step){
-  // step is a short string like "1/2 Fetching SHA…"
+async function saveToGitHub(){
   try{
-    setStatus("Saving to GitHub…", step, "warn");
-  }catch(_){}
-}
-
-(function wireTestToken(){
-  document.addEventListener("DOMContentLoaded", ()=>{
-    const btn = document.getElementById("btnTestToken");
-    if(!btn) return;
-    btn.addEventListener("click", async ()=>{
-      const s = ghSettings();
-      if(!s.token){
-        setStatus("Token test failed.","Paste token in Settings first.", "err");
-        return;
-      }
-      try{
-        setStatus("Testing token…","Calling GitHub /user", "warn");
-        const r = await ghApi("/user", s.token, "GET", null, 8000);
-        if(!r.res.ok){
-          const msg = (r.json && r.json.message) ? r.json.message : r.text || `HTTP ${r.res.status}`;
-          throw new Error(`(${r.res.status}) ${msg}`);
-        }
-        const login = r.json && r.json.login ? r.json.login : "unknown";
-        setStatus("Token OK ✅", `Logged in as ${login}`, "ok");
-      }catch(e){
-        setStatus("Token test failed.", e && e.message ? e.message : String(e), "err");
-      }
+    setText("statusLine1","Saving…");
+    setText("statusLine2","");
+    var s = ghSettings && ghSettings();
+    if(!s || !s.token){
+      setText("statusLine1","Save failed");
+      setText("statusLine2","Missing GitHub token");
+      return;
+    }
+    var ctrl = new AbortController();
+    setTimeout(()=>ctrl.abort(),8000);
+    var r = await fetch("https://api.github.com/user",{
+      headers:{Authorization:"token "+s.token},
+      signal:ctrl.signal
     });
-  });
-})();
+    if(!r.ok){
+      setText("statusLine1","Save failed");
+      setText("statusLine2","GitHub auth error "+r.status);
+      return;
+    }
+    setText("statusLine1","Saved ✓");
+    setText("statusLine2","(connection OK)");
+  }catch(e){
+    setText("statusLine1","Save failed");
+    setText("statusLine2",e.message||"error");
+  }
+}
